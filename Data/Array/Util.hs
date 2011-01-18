@@ -1,5 +1,9 @@
 {-# LANGUAGE BangPatterns #-}
-module Data.Array.Util (
+module Data.Array.Util
+    ( mapElems
+    , mapElemsIx
+    , mapElems'
+    , mapElemsIx'
     ) where
 
 import Data.Array.Base
