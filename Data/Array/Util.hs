@@ -21,7 +21,6 @@ updateElems f arr = do
     forM_ [0..end] $ \i -> unsafeRead arr i >>= unsafeWrite arr i . f
 
 
-
 {-# INLINE updateElemsIx #-}
 -- | The same as updateElems, but also providing the index to the
 -- mapping function. /O(size of arr)/
@@ -37,6 +36,38 @@ updateElemsIx f arr =do
         go _ _ = return ()
     go 0 (range bnds)
 
+
+{-# INLINE updateElemsWithin #-}
+-- | Takes an update function `f` and a tuple of indicies `(start, finish)`
+-- , and applies the function to all elements returned by range (start, finish).
+-- Throws an IndexOutOfBounds exception if either of the indicies are out of bounds.
+updateElemsWithin :: (MArray a e m, Ix i) => (e -> e) -> (i,i) -> a i e -> m ()
+updateElemsWithin f (start, finish) arr = do
+    bnds <- getBounds arr
+    let ok = inRange bnds start && inRange bnds finish
+        indicies = map (index bnds) $ range (start, finish)
+    when (not ok) $ throw $ IndexOutOfBounds $ "Data.Array.Util updateElemsWithin"
+    forM_ indicies $ \i -> unsafeRead arr i >>= unsafeWrite arr i . f
+
+
+{-# INLINE updateElemsWithinIx #-}
+-- | Takes an update function `f` and a tuple of indicies `(start, finish)`
+-- , and applies the function to all elements returned by range (start, finish).
+-- Throws an IndexOutOfBounds exception if either of the indicies are out of bounds.
+updateElemsWithinIx :: (MArray a e m, Ix i) => (i -> e -> e) -> (i,i) -> a i e -> m ()
+updateElemsWithinIx f (start, finish) arr = do
+    bnds <- getBounds arr
+    let ok = inRange bnds start && inRange bnds finish
+        rnge = range (start, finish)
+        indicies = map (index bnds) rnge
+        go (!i:is) (!x:xs) = do
+            e <- unsafeRead arr i
+            unsafeWrite arr i $ f x e
+        go _ _ = return ()
+    when (not ok) $ throw $ IndexOutOfBounds $ "Data.Array.Util updateElemsWithin"
+    go indicies rnge
+
+
 {-# INLINE updateElems' #-}
 -- | Takes a mapping function, and a list of indicies to mutate.
 -- Throws an IndexOutOfBounds exception if any of the indicies are
@@ -47,7 +78,7 @@ updateElems' f xs arr = do
     bnds <- getBounds arr
     let !ok = all (inRange bnds) xs
         toOffset = index bnds
-    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateElems': Index out of bounds")
+    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateElems'")
     forM_ (map toOffset xs) $ \i -> unsafeRead arr i >>= unsafeWrite arr i . f
 
 
@@ -66,5 +97,6 @@ updateElemsIx' f xs arr = do
             unsafeWrite arr i $ f x e
             go is xs
         go _ _ = return ()
-    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateElemsIx': Index out of bounds")
+    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateElemsIx'")
     go ixs xs
+
