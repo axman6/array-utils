@@ -39,6 +39,8 @@ updateElemsIx f arr =do
 
 {-# INLINE updateElems' #-}
 -- | Takes a mapping function, and a list of indicies to mutate.
+-- Throws an IndexOutOfBounds exception if any of the indicies are
+-- out of bounds. In this case the array will be left unmutated.
 -- /O(length xs)/
 updateElems' :: (MArray a e m, Ix i) => (e -> e) -> [i] -> a i e -> m ()
 updateElems' f xs arr = do
@@ -51,17 +53,18 @@ updateElems' f xs arr = do
 
 {-# INLINE updateElemsIx' #-}
 -- | Takes a mapping function which takes an index, and a list of indicies
--- to mutate. /O(length xs)/
+-- to mutate. Throws IndexOutOfBounds exception as `updateElems'` does.
+-- /O(length xs)/
 updateElemsIx' :: (MArray a e m, Ix i) => (i -> e -> e) -> [i] -> a i e -> m ()
 updateElemsIx' f xs arr = do
     bnds@(lo, hi) <- getBounds arr
     let !ok =  all (inRange bnds) xs
         toOffset = index (lo, hi)
         ixs = map toOffset xs
-        go (!i:is) (!i':is') = do
+        go (!i:is) (!x:xs) = do
             e <- unsafeRead arr i
-            unsafeWrite arr i $! f i' e
-            go is is'
+            unsafeWrite arr i $ f x e
+            go is xs
         go _ _ = return ()
     when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateElemsIx': Index out of bounds")
     go ixs xs
