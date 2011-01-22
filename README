@@ -1,0 +1,4 @@
+A collection of functions for manipulating mutable Arrays in Haskell.
+
+The aim of this project is to have some or all of the functions
+it defines included in the GHC 7.2 array library.
