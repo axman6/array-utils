@@ -1,15 +1,23 @@
 {-# LANGUAGE BangPatterns, CPP #-}
 module Data.Array.Util
-    ( updateElems
+    ( 
+    -- $intro
+    -- * Updateting all elements
+      updateElems
     , updateElemsIx
-    , updateElemsOn
-    , updateElemsIxOn
-    , updateElemsWithin
-    , updateElemsWithinIx
+    -- ** Monadic versions
     , updateElemsM
     , updateElemsIxM
+    -- * Updating certain elements
+    , updateElemsOn
+    , updateElemsIxOn
+    -- ** Monadic versions
     , updateElemsOnM
     , updateElemsIxOnM
+    -- * Updating within a bounded area
+    , updateElemsWithin
+    , updateElemsWithinIx
+    -- ** Monadic versions
     , updateElemsWithinM
     , updateElemsWithinIxM
     ) where
@@ -29,11 +37,10 @@ import Control.Exception
 #define INLINE(x) {- not inlined -}
 #endif -- __GLASGOW_HASKELL__
 
-{-# INLINE update, #-}
+{-# INLINE update #-}
 {-# INLINE updateIx #-}
 {-# INLINE updateM #-}
 {-# INLINE updateIxM #-}
-
 update :: (MArray a e m, Ix i) => a i e -> (e -> e) -> Int -> m ()
 update arr f i = unsafeRead arr i >>= unsafeWrite arr i . f
 
@@ -47,10 +54,32 @@ updateIxM :: (MArray a e m, Ix i) => a i e -> (i -> e -> m e) -> Int -> i -> m (
 updateIxM arr f i x = unsafeRead arr i >>= f x >>= unsafeWrite arr i
 
 
+-- $intro
+-- This module contains some primitive operations for working with
+-- mutable `Arrays`. They all try to avoid bounds checking as much
+-- as possible, and should be quite fast.
+-- 
+-- This library relies on some of the primitives in GHC.Arr, so is
+-- probably not portable.
+
+
 INLINE(updateElems)
--- | updateElems mutates every element in an array while avoiding
--- all bounds checks. /O(size of arr)/
-updateElems :: (MArray a e m, Ix i) => (e -> e) -> a i e -> m ()
+{-|
+updateElems mutates every element in an array while avoiding all bounds checks.
+
+@
+    arr <- newArray (1,10) 0 :: IO (IOArray Int Int)
+    -- Produces a 1 based array with 10 elements all set to 0.
+    updateElems arr (+ 10)
+    -- Updates all elements to 10
+@
+
+/O(size of arr)/
+-}
+updateElems :: (MArray a e m, Ix i)
+    => (e -> e) -- ^ Update function
+    -> a i e    -- ^ The array
+    -> m ()
 updateElems f arr = do
     bnds@(_ , end') <- getBounds arr
     let !end = unsafeIndex bnds end'
@@ -58,8 +87,7 @@ updateElems f arr = do
 
 
 INLINE(updateElemsM)
--- | updateElems mutates every element in an array while avoiding
--- all bounds checks. /O(size of arr)/
+-- | The same as updateElems but taking a monadic function. /O(size of arr)/
 updateElemsM :: (MArray a e m, Ix i) => (e -> m e) -> a i e -> m ()
 updateElemsM f arr = do
     bnds@(_ , end') <- getBounds arr
@@ -82,8 +110,7 @@ updateElemsIx f arr = do
 
 
 INLINE(updateElemsIxM)
--- | The same as updateElems, but also providing the index to the
--- mapping function. /O(size of arr)/
+-- | The same updateElemsIx but taking a monadic function. /O(size of arr)/
 updateElemsIxM :: (MArray a e m, Ix i) => (i -> e -> m e) -> a i e -> m ()
 updateElemsIxM f arr = do
     bnds@(_ , end') <- getBounds arr
@@ -95,10 +122,22 @@ updateElemsIxM f arr = do
     go 0 (range bnds)
 
 INLINE(updateElemsWithin)
--- | Takes an update function `f` and a tuple of indicies `(start, finish)`
--- , and applies the function to all elements returned by range (start, finish).
--- Throws an IndexOutOfBounds exception if either of the indicies are out of bounds.
-updateElemsWithin :: (MArray a e m, Ix i) => (e -> e) -> (i,i) -> a i e -> m ()
+{-|
+Takes an update function `f` and a tuple of indicies `(start, finish)`,
+and applies the function to all elements returned by `range (start, finish)`.
+
+If this is a 2D array, then the area updated will be the box bounded by these elements,
+and the rectangular prism area for a 3D array etc.
+
+Throws an IndexOutOfBounds exception if either of the indicies are out of bounds.
+
+-}
+
+updateElemsWithin :: (MArray a e m, Ix i)
+    => (e -> e) -- ^ Update function
+    -> (i,i)    -- ^ The bounds within which to apply f. 
+    -> a i e    -- ^ The array
+    -> m ()
 updateElemsWithin f (start, finish) arr = do
     bnds <- getBounds arr
     let !ok      = inRange bnds start && inRange bnds finish
@@ -163,7 +202,11 @@ INLINE(updateElemsOn)
 -- Throws an IndexOutOfBounds exception if any of the indicies are
 -- out of bounds. In this case the array will be left unmutated.
 -- /O(length xs)/
-updateElemsOn :: (MArray a e m, Ix i) => (e -> e) -> [i] -> a i e -> m ()
+updateElemsOn :: (MArray a e m, Ix i)
+    => (e -> e) -- ^ Update function
+    -> [i]      -- ^ A lift of indicies to update
+    -> a i e    -- ^ The array
+    -> m ()
 updateElemsOn f xs arr = do
     bnds <- getBounds arr
     let !ok      = all (inRange bnds) xs
@@ -197,6 +240,7 @@ updateElemsIxOn f indexes arr = do
     bnds@(lo, hi) <- getBounds arr
     let toOffset           = unsafeIndex (lo, hi)
         ixs                = map toOffset indexes
+        end                = toOffset hi
         !ok                = all (\x -> x >= 0 && x <= end) ixs
 
         go (!i:is) (x:xs)  = updateIx arr f i x >> go is xs
