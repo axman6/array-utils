@@ -62,7 +62,6 @@ import Control.Exception
 {-|
 updateElems mutates every element in an array while avoiding all bounds checks. /O(size of arr)/
 
-
 >>> arr <- newArray (1,10) 0 :: IO (IOArray Int Int)
     -- Produces a 1 based array with 10 elements all set to 0.
 >>> updateElems arr (+ 10)
