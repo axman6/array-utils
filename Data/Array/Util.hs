@@ -20,6 +20,11 @@ module Data.Array.Util
     -- ** Monadic versions
     , updateElemsWithinM
     , updateElemsWithinIxM
+    -- * Updating slices
+    -- $Slice
+    , updateElemsSlice
+    -- ** Monadic versions
+    , updateElemsSliceM
     ) where
 
 import GHC.Arr
@@ -45,7 +50,7 @@ import Control.Exception
 -- Some functions throw 'IndexOutOfBounds' exceptions. If an exception
 -- is thrown, the array will be left untouched.
 -- 
--- This library relies on some of the primitives in GHC.Arr, so is
+-- This library relies on some of the primitives in "GHC.Arr", so is
 -- probably not portable.
 
 
@@ -234,8 +239,8 @@ updateElemsOnM f xs arr = do
 INLINE(updateElemsIxOn)
 updateElemsIxOn :: (MArray a e m, Ix i) => (i -> e -> e) -> [i] -> a i e -> m ()
 updateElemsIxOn f indexes arr = do
-    bnds@(lo, hi) <- getBounds arr
-    let toOffset           = unsafeIndex (lo, hi)
+    bnds@(_, hi) <- getBounds arr
+    let toOffset           = unsafeIndex bnds
         ixs                = map toOffset indexes
         end                = toOffset hi
         !ok                = all (\x -> x >= 0 && x <= end) ixs
@@ -265,6 +270,73 @@ updateElemsIxOnM f indexes arr = do
 
     when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateElemsIx'")
     go ixs indexes
+
+
+-- ======================
+-- = updateElemsSlice* =
+-- ======================
+
+{- $Slice
+/Note the difference between these functions and updateElemsWithin./
+These functions will update every element who that holds this property:
+
+> f x = index (start,end) start <= ix && ix <= index (start,end) end
+>   where ix = index (start, end) x
+
+For example:
+
+>>> arr <- newArray ((1,1),(5,5)) 0 :: IO (IOArray Int Int)
+    -- Produces aa 2D array with 25 elements all set to 0.
+>>> updateElemsSlice arr ((2,4),(3,5)) (+ 10)
+    -- Updates elements at indexes [(2,4),(2,5),(3,1),(3,2),(3,3),(3,4),(3,5)] to 10
+
+\*Ix versions are not included, because there's no easy way to map from
+an Int to an element in a particular bounds.
+
+All of these functions may throw 'IndexOutOfBounds' exceptions.
+-}
+
+{-|
+updateElemsSlice mutates every element in an array between a start
+index and an end index. /O(size of arr)/
+
+
+>>> arr <- newArray (1,10) 0 :: IO (IOArray Int Int)
+    -- Produces a 1 based array with 10 elements all set to 0.
+>>> updateElemsSlice arr (2,4) (+ 10)
+    -- Updates elements at indexes 2, 3 and 4 to 10
+
+
+-}
+INLINE(updateElemsSlice)
+updateElemsSlice :: (MArray a e m, Ix i)
+    => (e -> e) -- ^ Update function
+    -> (i,i)    -- ^ The start and end of the region to update
+    -> a i e    -- ^ The array
+    -> m ()
+updateElemsSlice f (start', finish') arr = do
+    bnds@(_ , end') <- getBounds arr
+    let !end    = unsafeIndex bnds end'
+        !start  = unsafeIndex bnds start'
+        !finish = unsafeIndex bnds finish'
+        !ok     = start >= 0 && start <= end && finish >= 0 && finish <= end
+
+    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateElemsSlice")
+    forM_ [start..finish] (update arr f)
+
+
+-- | The same as updateElems but taking a monadic function. /O(size of arr)/
+INLINE(updateElemsSliceM)
+updateElemsSliceM :: (MArray a e m, Ix i) => (e -> m e) -> (i,i) -> a i e -> m ()
+updateElemsSliceM f (start', finish') arr = do
+    bnds@(_ , end') <- getBounds arr
+    let !end    = unsafeIndex bnds end'
+        !start  = unsafeIndex bnds start'
+        !finish = unsafeIndex bnds finish'
+        !ok     = start >= 0 && start <= end && finish >= 0 && finish <= end
+
+    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateElemsSlice")
+    forM_ [start..finish] (updateM arr f)
 
 
 -- =====================
