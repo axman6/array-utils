@@ -279,7 +279,7 @@ updateElemsIxOnM f indexes arr = do
 
 {- $Slice
 /Note the difference between these functions and updateElemsWithin./
-These functions will update every element who that holds this property:
+These functions will update every element whose index holds this property:
 
 > f x = index (start,end) start <= ix && ix <= index (start,end) end
 >   where ix = index (start, end) x
