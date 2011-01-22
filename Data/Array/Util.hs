@@ -2,7 +2,8 @@
 module Data.Array.Util
     ( 
     -- $intro
-    -- * Updateting all elements
+
+    -- * Updating all elements
       updateElems
     , updateElemsIx
     -- ** Monadic versions
