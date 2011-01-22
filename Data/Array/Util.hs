@@ -37,27 +37,13 @@ import Control.Exception
 #define INLINE(x) {- not inlined -}
 #endif -- __GLASGOW_HASKELL__
 
-{-# INLINE update #-}
-{-# INLINE updateIx #-}
-{-# INLINE updateM #-}
-{-# INLINE updateIxM #-}
-update :: (MArray a e m, Ix i) => a i e -> (e -> e) -> Int -> m ()
-update arr f i = unsafeRead arr i >>= unsafeWrite arr i . f
-
-updateIx :: (MArray a e m, Ix i) => a i e -> (i -> e -> e) -> Int -> i -> m ()
-updateIx arr f i x = unsafeRead arr i >>= unsafeWrite arr i . f x
-
-updateM :: (MArray a e m, Ix i) => a i e -> (e -> m e) -> Int -> m ()
-updateM arr f i = unsafeRead arr i >>= f >>= unsafeWrite arr i
-
-updateIxM :: (MArray a e m, Ix i) => a i e -> (i -> e -> m e) -> Int -> i -> m ()
-updateIxM arr f i x = unsafeRead arr i >>= f x >>= unsafeWrite arr i
-
-
 -- $intro
 -- This module contains some primitive operations for working with
 -- mutable 'Arrays'. They all try to avoid bounds checking as much
 -- as possible, and should be quite fast.
+-- 
+-- Some functions throw 'IndexOutOfBounds' exceptions. If an exception
+-- is thrown, the array will be left untouched.
 -- 
 -- This library relies on some of the primitives in GHC.Arr, so is
 -- probably not portable.
@@ -68,7 +54,7 @@ updateIxM arr f i x = unsafeRead arr i >>= f x >>= unsafeWrite arr i
 -- ================
 
 {-|
-updateElems mutates every element in an array while avoiding all bounds checks.
+updateElems mutates every element in an array while avoiding all bounds checks. /O(size of arr)/
 
 
 >>> arr <- newArray (1,10) 0 :: IO (IOArray Int Int)
@@ -76,8 +62,6 @@ updateElems mutates every element in an array while avoiding all bounds checks.
 >>> updateElems arr (+ 10)
     -- Updates all elements to 10
 
-
-/O(size of arr)/
 -}
 INLINE(updateElems)
 updateElems :: (MArray a e m, Ix i)
@@ -151,7 +135,6 @@ updateElemsWithin f (start, finish) arr = do
 
     when (not ok) $ throw $ IndexOutOfBounds $ "Data.Array.Util updateElemsWithin"
     forM_ indicies (update arr f)
-
 
 
 -- | The same as 'updateElemsWithin' but taking a monadic function.
@@ -265,8 +248,9 @@ updateElemsIxOn f indexes arr = do
 
 
 -- | Takes a mapping function which takes an index, and a list of indicies
--- to mutate. Throws 'IndexOutOfBounds' exception as 'updateElems'' does.
--- /O(length xs)/
+-- to mutate. /O(length xs)/
+-- 
+-- Throws 'IndexOutOfBounds' exception as 'updateElems'' does.
 INLINE(updateElemsIxOnM)
 updateElemsIxOnM :: (MArray a e m, Ix i) => (i -> e -> m e) -> [i] -> a i e -> m ()
 updateElemsIxOnM f indexes arr = do
@@ -283,3 +267,22 @@ updateElemsIxOnM f indexes arr = do
     go ixs indexes
 
 
+-- =====================
+-- = Utility functions =
+-- =====================
+
+{-# INLINE update #-}
+{-# INLINE updateIx #-}
+{-# INLINE updateM #-}
+{-# INLINE updateIxM #-}
+update :: (MArray a e m, Ix i) => a i e -> (e -> e) -> Int -> m ()
+update arr f i = unsafeRead arr i >>= unsafeWrite arr i . f
+
+updateIx :: (MArray a e m, Ix i) => a i e -> (i -> e -> e) -> Int -> i -> m ()
+updateIx arr f i x = unsafeRead arr i >>= unsafeWrite arr i . f x
+
+updateM :: (MArray a e m, Ix i) => a i e -> (e -> m e) -> Int -> m ()
+updateM arr f i = unsafeRead arr i >>= f >>= unsafeWrite arr i
+
+updateIxM :: (MArray a e m, Ix i) => a i e -> (i -> e -> m e) -> Int -> i -> m ()
+updateIxM arr f i x = unsafeRead arr i >>= f x >>= unsafeWrite arr i
