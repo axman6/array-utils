@@ -49,7 +49,15 @@ import Control.Exception
 -- as possible, and should be quite fast.
 -- 
 -- Some functions throw 'IndexOutOfBounds' exceptions. If an exception
--- is thrown, the array will be left untouched.
+-- is thrown, the array will be left untouched, meaning it may be ok to
+-- catch the exception, and continue using the array.
+-- 
+-- Each function has four varieties: a simple version which uses a pure
+-- function ('e -> e') to update each element, a version which also passes
+-- the element's index to the pure function ('i -> e -> e'), and two monadic
+-- versions of the previous two ('e -> m e', 'i -> e -> m e'),
+-- which are useful for reading other elements of the array, or filling the
+-- array with values from an external source.
 -- 
 -- This library relies on some of the primitives in "GHC.Arr", so is
 -- probably not portable.
@@ -60,7 +68,7 @@ import Control.Exception
 -- ================
 
 {-|
-updateElems mutates every element in an array while avoiding all bounds checks. /O(size of arr)/
+updateAll mutates every element in an array while avoiding all bounds checks. Think of it as a mutable version of map. /O(size of arr)/
 
 >>> arr <- newArray (1,10) 0 :: IO (IOArray Int Int)
     -- Produces a 1 based array with 10 elements all set to 0.
@@ -88,7 +96,7 @@ updateAllM f arr = do
     forM_ [0..end] (updateM arr f)
 
 
--- | The same as updateElems, but also providing the index to the
+-- | The same as updateAll, but also providing the index to the
 -- mapping function. /O(size of arr)/
 INLINE(updateAllIx)
 updateAllIx :: (MArray a e m, Ix i) => (i -> e -> e) -> a i e -> m ()
@@ -142,7 +150,7 @@ updateWithin f (start, finish) arr = do
     forM_ indicies (update arr f)
 
 
--- | The same as 'updateElemsWithin' but taking a monadic function.
+--  The same as 'updateWithin' but taking a monadic function.
 -- 
 -- Throws an 'IndexOutOfBounds' exception if either of the indicies are out of bounds.
 INLINE(updateWithinM)
@@ -156,7 +164,7 @@ updateWithinM f (start, finish) arr = do
     forM_ indicies (updateM arr f)
 
 
--- | Takes an update function 'f' and a tuple of indicies '(start, finish)'
+--  Takes an update function 'f' and a tuple of indicies '(start, finish)'
 -- , and applies the function to all elements returned by range (start, finish).
 -- 
 -- Throws an 'IndexOutOfBounds' exception if either of the indicies are out of bounds.
@@ -201,6 +209,7 @@ Takes a mapping function, and a list of indicies to mutate.
 
 Throws an 'IndexOutOfBounds' exception if any of the indicies are
 out of bounds. In this case the array will be left unmutated.
+
 /O(length xs)/
 -}
 INLINE(updateOn)
@@ -235,8 +244,8 @@ updateOnM f xs arr = do
     forM_ (map toOffset xs) (updateM arr f)
 
 
--- | Takes a mapping function which takes an index, and a list of indicies
--- to mutate. Throws 'IndexOutOfBounds' exception as 'updateElems'' does.
+-- Takes a mapping function which takes an index, and a list of indicies
+-- to mutate. Throws 'IndexOutOfBounds' exception as 'updateAll'' does.
 -- /O(length xs)/
 INLINE(updateOnIx)
 updateOnIx :: (MArray a e m, Ix i) => (i -> e -> e) -> [i] -> a i e -> m ()
@@ -254,7 +263,7 @@ updateOnIx f indexes arr = do
     go ixs indexes
 
 
--- | Takes a mapping function which takes an index, and a list of indicies
+-- Takes a mapping function which takes an index, and a list of indicies
 -- to mutate. /O(length xs)/
 -- 
 -- Throws 'IndexOutOfBounds' exception as 'updateAll'' does.
@@ -279,7 +288,7 @@ updateOnIxM f indexes arr = do
 -- ======================
 
 {- $Slice
-/Note the difference between these functions and updateElemsWithin./
+/Note the difference between these functions and updateWithin./
 These functions will update every element whose index holds this property:
 
 > f x = index (start,end) start <= ix && ix <= index (start,end) end
@@ -288,9 +297,12 @@ These functions will update every element whose index holds this property:
 For example:
 
 >>> arr <- newArray ((1,1),(5,5)) 0 :: IO (IOArray Int Int)
-    -- Produces aa 2D array with 25 elements all set to 0.
->>> updateElemsSlice arr ((2,4),(3,5)) (+ 10)
-    -- Updates elements at indexes [(2,4),(2,5),(3,1),(3,2),(3,3),(3,4),(3,5)] to 10
+    -- Produces a 2D array with 25 elements all set to 0.
+>>> updateSlice ((2,4),(3,5)) (+ 10) arr
+    -- Updates elements at indexes:
+    --                     [(2,4),(2,5),
+    --    (3,1),(3,2),(3,3),(3,4),(3,5)]
+    --  to 10
 
 \*Ix versions are not included, because there's no easy way to map from
 an Int to an element in a particular bounds.
@@ -299,7 +311,7 @@ All of these functions may throw 'IndexOutOfBounds' exceptions.
 -}
 
 {-|
-updateElemsSlice mutates every element in an array between a start
+updateSlice mutates every element in an array between a start
 index and an end index. /O(size of arr)/
 
 
