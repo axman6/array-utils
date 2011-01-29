@@ -362,10 +362,10 @@ updateSliceM f (start', finish') arr = do
 {-# INLINE updateM #-}
 {-# INLINE updateIxM #-}
 update :: (MArray a e m, Ix i) => a i e -> (e -> e) -> Int -> m ()
-update arr f i = unsafeRead arr i >>= unsafeWrite arr i . f
+update arr f i = updateM arr (return . f) i
 
 updateIx :: (MArray a e m, Ix i) => a i e -> (i -> e -> e) -> Int -> i -> m ()
-updateIx arr f i x = unsafeRead arr i >>= unsafeWrite arr i . f x
+updateIx arr f i x = updateIxM arr (\x -> return . f x) i x
 
 updateM :: (MArray a e m, Ix i) => a i e -> (e -> m e) -> Int -> m ()
 updateM arr f i = unsafeRead arr i >>= f >>= unsafeWrite arr i
