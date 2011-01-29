@@ -4,28 +4,28 @@ module Data.Array.Util
     -- $intro
 
     -- * Updating all elements
-      updateElems
-    , updateElemsIx
+      updateAll
+    , updateAllIx
     -- ** Monadic versions
-    , updateElemsM
-    , updateElemsIxM
+    , updateAllM
+    , updateAllIxM
     -- * Updating certain elements
-    , updateElemsOn
-    , updateElemsIxOn
+    , updateOn
+    , updateOnIx
     -- ** Monadic versions
-    , updateElemsOnM
-    , updateElemsIxOnM
+    , updateOnM
+    , updateOnIxM
     -- * Updating within a bounded area
-    , updateElemsWithin
-    , updateElemsWithinIx
+    , updateWithin
+    , updateWithinIx
     -- ** Monadic versions
-    , updateElemsWithinM
-    , updateElemsWithinIxM
+    , updateWithinM
+    , updateWithinIxM
     -- * Updating slices
     -- $Slice
-    , updateElemsSlice
+    , updateSlice
     -- ** Monadic versions
-    , updateElemsSliceM
+    , updateSliceM
     ) where
 
 import GHC.Arr
@@ -56,7 +56,7 @@ import Control.Exception
 
 
 -- ================
--- = updateElems* =
+-- = updateAll* =
 -- ================
 
 {-|
@@ -64,25 +64,25 @@ updateElems mutates every element in an array while avoiding all bounds checks. 
 
 >>> arr <- newArray (1,10) 0 :: IO (IOArray Int Int)
     -- Produces a 1 based array with 10 elements all set to 0.
->>> updateElems arr (+ 10)
+>>> updateAll arr (+ 10)
     -- Updates all elements to 10
 
 -}
-INLINE(updateElems)
-updateElems :: (MArray a e m, Ix i)
+INLINE(updateAll)
+updateAll :: (MArray a e m, Ix i)
     => (e -> e) -- ^ Update function
     -> a i e    -- ^ The array
     -> m ()
-updateElems f arr = do
+updateAll f arr = do
     bnds@(_ , end') <- getBounds arr
     let !end = unsafeIndex bnds end'
     forM_ [0..end] (update arr f)
 
 
--- | The same as updateElems but taking a monadic function. /O(size of arr)/
-INLINE(updateElemsM)
-updateElemsM :: (MArray a e m, Ix i) => (e -> m e) -> a i e -> m ()
-updateElemsM f arr = do
+-- | The same as updateAll but taking a monadic function. /O(size of arr)/
+INLINE(updateAllM)
+updateAllM :: (MArray a e m, Ix i) => (e -> m e) -> a i e -> m ()
+updateAllM f arr = do
     bnds@(_ , end') <- getBounds arr
     let !end = unsafeIndex bnds end'
     forM_ [0..end] (updateM arr f)
@@ -90,9 +90,9 @@ updateElemsM f arr = do
 
 -- | The same as updateElems, but also providing the index to the
 -- mapping function. /O(size of arr)/
-INLINE(updateElemsIx)
-updateElemsIx :: (MArray a e m, Ix i) => (i -> e -> e) -> a i e -> m ()
-updateElemsIx f arr = do
+INLINE(updateAllIx)
+updateAllIx :: (MArray a e m, Ix i) => (i -> e -> e) -> a i e -> m ()
+updateAllIx f arr = do
     bnds@(_ , end') <- getBounds arr
     let !end                    = unsafeIndex bnds end'
 
@@ -102,10 +102,10 @@ updateElemsIx f arr = do
     go 0 (range bnds)
 
 
--- | The same updateElemsIx but taking a monadic function. /O(size of arr)/
-INLINE(updateElemsIxM)
-updateElemsIxM :: (MArray a e m, Ix i) => (i -> e -> m e) -> a i e -> m ()
-updateElemsIxM f arr = do
+-- | The same updateAllIx but taking a monadic function. /O(size of arr)/
+INLINE(updateAllIxM)
+updateAllIxM :: (MArray a e m, Ix i) => (i -> e -> m e) -> a i e -> m ()
+updateAllIxM f arr = do
     bnds@(_ , end') <- getBounds arr
     let !end                     = unsafeIndex bnds end'
 
@@ -114,9 +114,9 @@ updateElemsIxM f arr = do
         go _ _                  = return ()
     go 0 (range bnds)
 
--- ======================
--- = updateElemsWithin* =
--- ======================
+-- =================
+-- = updateWithin* =
+-- =================
 
 {-|
 Takes an update function 'f' and a tuple of indicies '(start, finish)',
@@ -127,32 +127,32 @@ and the rectangular prism area for a 3D array etc.
 
 Throws an 'IndexOutOfBounds' exception if either of the indicies are out of bounds.
 -}
-INLINE(updateElemsWithin)
-updateElemsWithin :: (MArray a e m, Ix i)
+INLINE(updateWithin)
+updateWithin :: (MArray a e m, Ix i)
     => (e -> e) -- ^ Update function
     -> (i,i)    -- ^ The bounds within which to apply f. 
     -> a i e    -- ^ The array
     -> m ()
-updateElemsWithin f (start, finish) arr = do
+updateWithin f (start, finish) arr = do
     bnds <- getBounds arr
     let !ok      = inRange bnds start && inRange bnds finish
         indicies = map (unsafeIndex bnds) $ range (start, finish)
 
-    when (not ok) $ throw $ IndexOutOfBounds $ "Data.Array.Util updateElemsWithin"
+    when (not ok) $ throw $ IndexOutOfBounds $ "Data.Array.Util updateWithin"
     forM_ indicies (update arr f)
 
 
 -- | The same as 'updateElemsWithin' but taking a monadic function.
 -- 
 -- Throws an 'IndexOutOfBounds' exception if either of the indicies are out of bounds.
-INLINE(updateElemsWithinM)
-updateElemsWithinM :: (MArray a e m, Ix i) => (e -> m e) -> (i,i) -> a i e -> m ()
-updateElemsWithinM f (start, finish) arr = do
+INLINE(updateWithinM)
+updateWithinM :: (MArray a e m, Ix i) => (e -> m e) -> (i,i) -> a i e -> m ()
+updateWithinM f (start, finish) arr = do
     bnds <- getBounds arr
     let !ok      = inRange bnds start && inRange bnds finish
         indicies = map (unsafeIndex bnds) $ range (start, finish)
 
-    when (not ok) $ throw $ IndexOutOfBounds $ "Data.Array.Util updateElemsWithin"
+    when (not ok) $ throw $ IndexOutOfBounds $ "Data.Array.Util updateWithinM"
     forM_ indicies (updateM arr f)
 
 
@@ -160,9 +160,9 @@ updateElemsWithinM f (start, finish) arr = do
 -- , and applies the function to all elements returned by range (start, finish).
 -- 
 -- Throws an 'IndexOutOfBounds' exception if either of the indicies are out of bounds.
-INLINE(updateElemsWithinIx)
-updateElemsWithinIx :: (MArray a e m, Ix i, Show i) => (i -> e -> e) -> (i,i) -> a i e -> m ()
-updateElemsWithinIx f (start, finish) arr = do
+INLINE(updateWithinIx)
+updateWithinIx :: (MArray a e m, Ix i, Show i) => (i -> e -> e) -> (i,i) -> a i e -> m ()
+updateWithinIx f (start, finish) arr = do
     bnds <- getBounds arr
     let !ok                = inRange bnds start && inRange bnds finish
         rnge              = range (start, finish)
@@ -171,16 +171,16 @@ updateElemsWithinIx f (start, finish) arr = do
         go (!i:is) (x:xs) = updateIx arr f i x >> go is xs
         go _ _            = return ()
 
-    when (not ok) $ throw $ IndexOutOfBounds $ "Data.Array.Util updateElemsWithinIx"
+    when (not ok) $ throw $ IndexOutOfBounds $ "Data.Array.Util updateWithinIx"
     go indicies rnge
 
 
--- | The same as 'updateElemsWithinIx' but taking a monadic function.
+--  The same as 'updateWithinIx' but taking a monadic function.
 -- 
 -- Throws an 'IndexOutOfBounds' exception if either of the indicies are out of bounds.
-INLINE(updateElemsWithinIxM)
-updateElemsWithinIxM :: (MArray a e m, Ix i, Show i) => (i -> e -> m e) -> (i,i) -> a i e -> m ()
-updateElemsWithinIxM f (start, finish) arr = do
+INLINE(updateWithinIxM)
+updateWithinIxM :: (MArray a e m, Ix i, Show i) => (i -> e -> m e) -> (i,i) -> a i e -> m ()
+updateWithinIxM f (start, finish) arr = do
     bnds <- getBounds arr
     let !ok                = inRange bnds start && inRange bnds finish
         rnge              = range (start, finish)
@@ -189,11 +189,11 @@ updateElemsWithinIxM f (start, finish) arr = do
         go (!i:is) (x:xs) = updateIxM arr f i x >> go is xs
         go _ _            = return ()
 
-    when (not ok) $ throw $ IndexOutOfBounds $ "Data.Array.Util updateElemsWithinIx"
+    when (not ok) $ throw $ IndexOutOfBounds $ "Data.Array.Util updateWithinIxM"
     go indicies rnge
 
 -- ==================
--- = updateElemsOn* =
+-- = updateOn* =
 -- ==================
 
 {-|
@@ -203,42 +203,44 @@ Throws an 'IndexOutOfBounds' exception if any of the indicies are
 out of bounds. In this case the array will be left unmutated.
 /O(length xs)/
 -}
-INLINE(updateElemsOn)
-updateElemsOn :: (MArray a e m, Ix i)
+INLINE(updateOn)
+updateOn :: (MArray a e m, Ix i)
     => (e -> e) -- ^ Update function
     -> [i]      -- ^ A list of indicies to update
     -> a i e    -- ^ The array
     -> m ()
-updateElemsOn f xs arr = do
+updateOn f xs arr = do
     bnds <- getBounds arr
     let !ok      = all (inRange bnds) xs
         toOffset = unsafeIndex bnds
 
-    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateElems'")
+    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateOn")
     forM_ (map toOffset xs) (update arr f)
 
 
--- | Takes a mapping function, and a list of indicies to mutate.
--- Throws an 'IndexOutOfBounds' exception if any of the indicies are
--- out of bounds. In this case the array will be left unmutated.
--- /O(length xs)/
-INLINE(updateElemsOnM)
-updateElemsOnM :: (MArray a e m, Ix i) => (e -> m e) -> [i] -> a i e -> m ()
-updateElemsOnM f xs arr = do
+{- Takes a mapping function, and a list of indicies to mutate.
+
+Throws an 'IndexOutOfBounds' exception if any of the indicies are
+out of bounds. In this case the array will be left unmutated.
+/O(length xs)/
+-}
+INLINE(updateOnM)
+updateOnM :: (MArray a e m, Ix i) => (e -> m e) -> [i] -> a i e -> m ()
+updateOnM f xs arr = do
     bnds <- getBounds arr
     let !ok      = all (inRange bnds) xs
         toOffset = unsafeIndex bnds
 
-    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateElems'")
+    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateAll'")
     forM_ (map toOffset xs) (updateM arr f)
 
 
 -- | Takes a mapping function which takes an index, and a list of indicies
 -- to mutate. Throws 'IndexOutOfBounds' exception as 'updateElems'' does.
 -- /O(length xs)/
-INLINE(updateElemsIxOn)
-updateElemsIxOn :: (MArray a e m, Ix i) => (i -> e -> e) -> [i] -> a i e -> m ()
-updateElemsIxOn f indexes arr = do
+INLINE(updateOnIx)
+updateOnIx :: (MArray a e m, Ix i) => (i -> e -> e) -> [i] -> a i e -> m ()
+updateOnIx f indexes arr = do
     bnds@(_, hi) <- getBounds arr
     let toOffset           = unsafeIndex bnds
         ixs                = map toOffset indexes
@@ -248,17 +250,17 @@ updateElemsIxOn f indexes arr = do
         go (!i:is) (x:xs)  = updateIx arr f i x >> go is xs
         go _ _             = return ()
 
-    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateElemsIx'")
+    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateAllIx'")
     go ixs indexes
 
 
 -- | Takes a mapping function which takes an index, and a list of indicies
 -- to mutate. /O(length xs)/
 -- 
--- Throws 'IndexOutOfBounds' exception as 'updateElems'' does.
-INLINE(updateElemsIxOnM)
-updateElemsIxOnM :: (MArray a e m, Ix i) => (i -> e -> m e) -> [i] -> a i e -> m ()
-updateElemsIxOnM f indexes arr = do
+-- Throws 'IndexOutOfBounds' exception as 'updateAll'' does.
+INLINE(updateOnIxM)
+updateOnIxM :: (MArray a e m, Ix i) => (i -> e -> m e) -> [i] -> a i e -> m ()
+updateOnIxM f indexes arr = do
     bnds@(_ , hi) <- getBounds arr
     let toOffset           = unsafeIndex bnds
         !end               = toOffset hi
@@ -268,12 +270,12 @@ updateElemsIxOnM f indexes arr = do
         go (!i:is) (x:xs)  = updateIxM arr f i x >> go is xs
         go _ _             = return ()
 
-    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateElemsIx'")
+    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateAllIx'")
     go ixs indexes
 
 
 -- ======================
--- = updateElemsSlice* =
+-- = updateSlice* =
 -- ======================
 
 {- $Slice
@@ -303,39 +305,39 @@ index and an end index. /O(size of arr)/
 
 >>> arr <- newArray (1,10) 0 :: IO (IOArray Int Int)
     -- Produces a 1 based array with 10 elements all set to 0.
->>> updateElemsSlice arr (2,4) (+ 10)
+>>> updateSlice arr (2,4) (+ 10)
     -- Updates elements at indexes 2, 3 and 4 to 10
 
 
 -}
-INLINE(updateElemsSlice)
-updateElemsSlice :: (MArray a e m, Ix i)
+INLINE(updateSlice)
+updateSlice :: (MArray a e m, Ix i)
     => (e -> e) -- ^ Update function
     -> (i,i)    -- ^ The start and end of the region to update
     -> a i e    -- ^ The array
     -> m ()
-updateElemsSlice f (start', finish') arr = do
+updateSlice f (start', finish') arr = do
     bnds@(_ , end') <- getBounds arr
     let !end    = unsafeIndex bnds end'
         !start  = unsafeIndex bnds start'
         !finish = unsafeIndex bnds finish'
         !ok     = start >= 0 && start <= end && finish >= 0 && finish <= end
 
-    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateElemsSlice")
+    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateSlice")
     forM_ [start..finish] (update arr f)
 
 
--- | The same as updateElems but taking a monadic function. /O(size of arr)/
-INLINE(updateElemsSliceM)
-updateElemsSliceM :: (MArray a e m, Ix i) => (e -> m e) -> (i,i) -> a i e -> m ()
-updateElemsSliceM f (start', finish') arr = do
+-- The same as updateAll but taking a monadic function. /O(size of arr)/
+INLINE(updateSliceM)
+updateSliceM :: (MArray a e m, Ix i) => (e -> m e) -> (i,i) -> a i e -> m ()
+updateSliceM f (start', finish') arr = do
     bnds@(_ , end') <- getBounds arr
     let !end    = unsafeIndex bnds end'
         !start  = unsafeIndex bnds start'
         !finish = unsafeIndex bnds finish'
         !ok     = start >= 0 && start <= end && finish >= 0 && finish <= end
 
-    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateElemsSlice")
+    when (not ok) $ throw (IndexOutOfBounds $ "Data.Array.Util updateSlice")
     forM_ [start..finish] (updateM arr f)
 
 

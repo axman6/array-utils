@@ -1,5 +1,5 @@
 Name:                array-utils
-Version:             0.1
+Version:             0.2
 category:            Data, Data Structures
 Synopsis:            Primitive functions for updating many elements in mutable arrays at once
 Description:         An collection of functions for working with multiple elements in
